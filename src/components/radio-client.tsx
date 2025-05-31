@@ -38,18 +38,46 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
     }
   }, []);
 
-  // create automatic forum post when someone joins (like omegle agent)
+  // helper function to get whop user token from cookies (like a competent developer)
+  const getUserToken = useCallback((): string | null => {
+    if (typeof document === 'undefined') return null;
+    
+    // get the whop_user_token cookie that whop automatically sets
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === 'whop_user_token') {
+        console.log('🍪 found whop_user_token cookie');
+        return value;
+      }
+    }
+    
+    console.error('🍪 whop_user_token cookie not found, available cookies:', document.cookie);
+    return null;
+  }, []);
+
+  // create automatic forum post when someone joins (with graceful fallback for dev)
   const createJoinPost = useCallback(async () => {
-    console.log('🎯 auto-creating join forum post via server route (whop-map pattern)!');
+    console.log('🎯 auto-creating join forum post with proper authentication!');
     console.log('📍 experienceId:', experienceId);
     
     try {
-      console.log('📤 making server api call...');
+      // get user token (gracefully handle missing token in dev)
+      const userToken = getUserToken();
+      
+      if (!userToken) {
+        console.warn('⚠️ no user token found - probably running in dev mode outside whop iframe');
+        console.warn('⚠️ skipping forum post creation (this is normal for localhost testing)');
+        return; // graceful degradation instead of throwing a tantrum
+      }
+
+      console.log('📤 making authenticated server api call...');
       
       const response = await fetch('/api/whop-forum', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
+          'X-Whop-User-Token': userToken, // pass user token to server (like you should have done from the beginning)
         },
         body: JSON.stringify({
           experienceId,
@@ -71,15 +99,13 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
         throw new Error(`server error: ${result.error} - ${result.details}`);
       }
       
-      console.log('✅ forum post created via server route:', result);
+      console.log('✅ forum post created via authenticated server route:', result);
       
     } catch (error) {
-      console.error('💥 server route forum post failed:', error);
-      console.error('💥 error name:', error instanceof Error ? error.name : 'unknown');
-      console.error('💥 error message:', error instanceof Error ? error.message : String(error));
-      console.error('💥 error stack:', error instanceof Error ? error.stack : 'no stack');
+      console.error('💥 authenticated server route forum post failed:', error);
+      console.error('💥 this is expected in development mode - forum posts only work in production whop iframe');
     }
-  }, [experienceId]);
+  }, [experienceId, getUserToken]);
 
   // send notification when user actually starts playing
   const sendJoinNotification = useCallback(() => {

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyUserToken, whopApi } from "@/lib/whop-api";
+import { headers } from "next/headers";
 
 export async function POST(request: NextRequest) {
   try {
     const { experienceId, title, content } = await request.json();
     
-    console.log('🎯 whop-forum api called (whop-map pattern):', {
+    console.log('🎯 whop-forum api called with proper authentication:', {
       experienceId,
       title,
       content,
@@ -19,10 +21,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // use the whop api function (same pattern as whop-map)
+    // verify user authentication (finally!)
+    const headersList = await headers();
+    const userToken = await verifyUserToken(headersList);
+    if (!userToken) {
+      console.error('❌ unauthorized: no valid user token');
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    console.log('✅ user authenticated:', userToken.userId);
+
+    // check if user has admin access (like the working implementation)
+    const hasAccess = await whopApi.checkIfUserHasAccessToExperience({
+      userId: userToken.userId,
+      experienceId,
+    });
+
+    if (hasAccess.hasAccessToExperience.accessLevel !== "admin") {
+      console.error('❌ unauthorized: admin access required');
+      return NextResponse.json(
+        { error: "Unauthorized, admin access required" },
+        { status: 401 }
+      );
+    }
+
+    console.log('✅ admin access verified');
+
+    // use the whop api function (now with proper auth)
     const { createTopicPost } = await import("@/lib/whop-api");
     
-    console.log('🔍 calling createTopicPost...');
+    console.log('🔍 calling createTopicPost with authenticated user...');
     const result = await createTopicPost(experienceId, title, content);
 
     console.log('✅ forum post created:', result);
