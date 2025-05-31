@@ -22,7 +22,19 @@ export async function POST(request: NextRequest) {
     
     const result = await sendJoinMessage(experienceId);
 
-    console.log('websocket message sent:', result);
+    // handle websocket errors gracefully (don't crash the whole app)
+    if (result && typeof result === 'object' && 'error' in result) {
+      console.log('⚠️ websocket message failed but continuing:', result.reason);
+      return NextResponse.json({ 
+        success: false,
+        error: true,
+        message: 'websocket message failed but app continues',
+        reason: result.reason,
+        data: { experienceId, message, type }
+      });
+    }
+
+    console.log('✅ websocket message sent successfully:', result);
     
     return NextResponse.json({ 
       success: true, 

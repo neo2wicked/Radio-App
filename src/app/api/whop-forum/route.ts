@@ -30,6 +30,29 @@ export async function POST(request: NextRequest) {
     // create forum post with authenticated user context
     const result = await createTopicPost(experienceId, title, content);
 
+    // handle graceful degradation when forum creation fails
+    if (result && typeof result === 'object' && 'skipped' in result) {
+      console.log('⚠️ forum post skipped due to permissions');
+      return NextResponse.json({ 
+        success: false,
+        skipped: true,
+        message: 'forum post skipped - app lacks forum creation permissions in this company',
+        reason: result.reason,
+        userId: userAuth.userId
+      });
+    }
+    
+    if (result && typeof result === 'object' && 'error' in result) {
+      console.log('⚠️ forum post failed but app continues');
+      return NextResponse.json({ 
+        success: false,
+        error: true,
+        message: 'forum post failed but radio continues to work',
+        reason: result.reason,
+        userId: userAuth.userId
+      });
+    }
+
     console.log('✅ forum post created successfully:', result);
     
     return NextResponse.json({ 

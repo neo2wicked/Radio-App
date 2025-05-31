@@ -28,7 +28,20 @@ export async function POST(request: NextRequest) {
     // send websocket message about new topic
     const messageResult = await sendJoinMessage(experienceId);
 
-    console.log('websocket message sent:', messageResult);
+    // handle websocket errors gracefully (don't crash the whole app)
+    if (messageResult && typeof messageResult === 'object' && 'error' in messageResult) {
+      console.log('⚠️ websocket message failed but forum post succeeded:', messageResult.reason);
+      return NextResponse.json({ 
+        success: true, // forum post worked, just websocket failed
+        forumSuccess: true,
+        websocketError: true,
+        message: 'forum post created but websocket notification failed',
+        websocketReason: messageResult.reason,
+        data: { forumResult, messageResult }
+      });
+    }
+
+    console.log('✅ websocket message sent successfully:', messageResult);
     
     return NextResponse.json({ 
       success: true, 
