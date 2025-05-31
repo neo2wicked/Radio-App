@@ -77,10 +77,10 @@ export const sendJoinMessage = async (experienceId: string) => {
   });
 };
 
-// create forum post using official whop docs pattern (agent user required!)
+// create forum post using official whop docs pattern (agent user configured in SDK!)
 export const createTopicPost = async (experienceId: string, title: string, content: string) => {
   try {
-    console.log('🎯 creating forum post with agent user (as per whop docs)...');
+    console.log('🎯 creating forum post with agent user (SDK configured)...');
     console.log('input experienceId:', experienceId);
     
     // step 1: get experience details to get bizId 
@@ -94,11 +94,10 @@ export const createTopicPost = async (experienceId: string, title: string, conte
     
     console.log('✅ got bizId:', bizId);
     
-    // step 2: find or create a forum experience (agent user required per docs)
+    // step 2: find or create a forum experience (following whop-map pattern)
     console.log('🗂️ finding or creating forum experience...');
     const forumResult = await whopApi
-      .withUser(AGENT_USER_ID)  // required per whop docs!
-      .withCompany(bizId)
+      .withCompany(bizId)  // only use company context (agent user set in SDK config)
       .findOrCreateForum({
         input: {
           experienceId: experienceId, // parent experience where we want the forum
@@ -115,11 +114,10 @@ export const createTopicPost = async (experienceId: string, title: string, conte
     
     console.log('✅ got forum experience id:', forumExperienceId);
     
-    // step 3: create forum post (agent user required per docs)
-    console.log('📤 creating forum post with agent user...');
+    // step 3: create forum post (following whop-map pattern)
+    console.log('📤 creating forum post with company context...');
     const postResult = await whopApi
-      .withUser(AGENT_USER_ID)  // required per whop docs!
-      .withCompany(bizId)
+      .withCompany(bizId)  // only use company context (agent user set in SDK config)
       .createForumPost({
         input: {
           forumExperienceId: forumExperienceId, // use the actual forum experience
