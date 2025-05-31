@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { headers } from "next/headers";
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,10 +18,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // debug all incoming headers (for troubleshooting)
-    const headersList = await headers();
-    console.log('📋 request headers received');
 
     // no user authentication needed - agent user creates the posts
     console.log('🤖 using agent user to create forum post (as per whop docs)');
