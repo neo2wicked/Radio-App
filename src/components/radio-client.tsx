@@ -75,20 +75,18 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
     return null;
   }, []);
 
-  // create automatic forum post when someone joins (try without manual token first)
+  // create automatic forum post when someone joins (agent user handles everything)
   const createJoinPost = useCallback(async () => {
-    console.log('🎯 auto-creating join forum post with whop-apps-sdk authentication!');
+    console.log('🎯 creating join forum post via agent user!');
     console.log('📍 experienceId:', experienceId);
     
     try {
-      // first, try without manual token - let @whop-apps/sdk handle it
-      console.log('📤 attempting request with automatic whop authentication...');
+      console.log('📤 making api call (agent user creates post)...');
       
       const response = await fetch('/api/whop-forum', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          // no manual token - let whop-apps-sdk validateToken handle authentication
         },
         body: JSON.stringify({
           experienceId,
@@ -106,49 +104,17 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       const result = await response.json();
       
       if (!response.ok) {
-        console.error('❌ automatic auth failed, trying manual token approach...');
-        
-        // fallback: try manual token extraction
-        const userToken = getUserToken();
-        
-        if (!userToken) {
-          console.warn('⚠️ no user token found - probably running in dev mode outside whop iframe');
-          console.warn('⚠️ skipping forum post creation (this is normal for localhost testing)');
-          return;
-        }
-
-        console.log('📤 retrying with manual token...');
-        
-        const retryResponse = await fetch('/api/whop-forum', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-Whop-User-Token': userToken,
-          },
-          body: JSON.stringify({
-            experienceId,
-            title: 'New Listener Joined',
-            content: 'Someone just joined the radio station! 🎧 Welcome to the vibe! What music are you feeling today?'
-          }),
-        });
-        
-        const retryResult = await retryResponse.json();
-        
-        if (!retryResponse.ok) {
-          throw new Error(`manual token also failed: ${retryResult.error} - ${retryResult.details}`);
-        }
-        
-        console.log('✅ forum post created via manual token fallback:', retryResult);
+        console.error('❌ forum post creation failed:', result);
+        console.error('❌ server error details:', result.details);
         return;
       }
       
-      console.log('✅ forum post created via automatic whop authentication:', result);
+      console.log('✅ forum post created successfully:', result);
       
     } catch (error) {
-      console.error('💥 forum post creation failed completely:', error);
-      console.error('💥 this might indicate authentication issues in production');
+      console.error('💥 forum post request failed:', error);
     }
-  }, [experienceId, getUserToken]);
+  }, [experienceId]);
 
   // send notification when user actually starts playing
   const sendJoinNotification = useCallback(() => {
