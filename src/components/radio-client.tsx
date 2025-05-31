@@ -38,43 +38,6 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
     }
   }, []);
 
-  // helper function to get whop user token from cookies (with better debugging)
-  const getUserToken = useCallback((): string | null => {
-    if (typeof document === 'undefined') return null;
-    
-    console.log('🔍 debugging all available cookies:');
-    const allCookies = document.cookie.split(';');
-    allCookies.forEach(cookie => {
-      const [name, value] = cookie.trim().split('=');
-      console.log(`  🍪 ${name}: ${value?.substring(0, 20)}...`);
-    });
-    
-    // try multiple possible cookie names
-    const possibleTokenNames = [
-      'whop_user_token',
-      'whop_token', 
-      'user_token',
-      'auth_token',
-      'access_token',
-      'whop-user-token',
-      'whop_session'
-    ];
-    
-    for (const tokenName of possibleTokenNames) {
-      for (const cookie of allCookies) {
-        const [name, value] = cookie.trim().split('=');
-        if (name === tokenName && value) {
-          console.log(`🍪 found potential auth token: ${tokenName}`);
-          return value;
-        }
-      }
-    }
-    
-    console.error('🍪 no whop auth token found in any expected cookie name');
-    console.error('🍪 this might mean whop changed their authentication method');
-    return null;
-  }, []);
-
   // create automatic forum post when someone joins (agent user handles everything)
   const createJoinPost = useCallback(async () => {
     console.log('🎯 creating join forum post via agent user!');

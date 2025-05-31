@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyUserToken, whopApi } from "@/lib/whop-api";
 import { headers } from "next/headers";
 
 export async function POST(request: NextRequest) {
