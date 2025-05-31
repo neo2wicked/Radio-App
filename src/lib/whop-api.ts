@@ -74,7 +74,7 @@ export const sendJoinMessage = async (experienceId: string) => {
 };
 
 // create forum post using AUTHENTICATED USER instead of hardcoded agent
-export const createTopicPost = async (experienceId: string, title: string, content: string, userToken?: string) => {
+export const createTopicPost = async (experienceId: string, title: string, content: string) => {
   try {
     console.log('🎯 creating forum post with authenticated user...');
     console.log('input experienceId:', experienceId);

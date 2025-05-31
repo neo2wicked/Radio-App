@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ user authenticated:', userAuth.userId);
     
     // create forum post with authenticated user context
-    const result = await createTopicPost(experienceId, title, content, userAuth.token || undefined);
+    const result = await createTopicPost(experienceId, title, content);
 
     console.log('✅ forum post created successfully:', result);
     
