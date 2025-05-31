@@ -38,46 +38,57 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
     }
   }, []);
 
-  // helper function to get whop user token from cookies (like a competent developer)
+  // helper function to get whop user token from cookies (with better debugging)
   const getUserToken = useCallback((): string | null => {
     if (typeof document === 'undefined') return null;
     
-    // get the whop_user_token cookie that whop automatically sets
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
+    console.log('🔍 debugging all available cookies:');
+    const allCookies = document.cookie.split(';');
+    allCookies.forEach(cookie => {
       const [name, value] = cookie.trim().split('=');
-      if (name === 'whop_user_token') {
-        console.log('🍪 found whop_user_token cookie');
-        return value;
+      console.log(`  🍪 ${name}: ${value?.substring(0, 20)}...`);
+    });
+    
+    // try multiple possible cookie names
+    const possibleTokenNames = [
+      'whop_user_token',
+      'whop_token', 
+      'user_token',
+      'auth_token',
+      'access_token',
+      'whop-user-token',
+      'whop_session'
+    ];
+    
+    for (const tokenName of possibleTokenNames) {
+      for (const cookie of allCookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === tokenName && value) {
+          console.log(`🍪 found potential auth token: ${tokenName}`);
+          return value;
+        }
       }
     }
     
-    console.error('🍪 whop_user_token cookie not found, available cookies:', document.cookie);
+    console.error('🍪 no whop auth token found in any expected cookie name');
+    console.error('🍪 this might mean whop changed their authentication method');
     return null;
   }, []);
 
-  // create automatic forum post when someone joins (with graceful fallback for dev)
+  // create automatic forum post when someone joins (try without manual token first)
   const createJoinPost = useCallback(async () => {
-    console.log('🎯 auto-creating join forum post with proper authentication!');
+    console.log('🎯 auto-creating join forum post with whop-apps-sdk authentication!');
     console.log('📍 experienceId:', experienceId);
     
     try {
-      // get user token (gracefully handle missing token in dev)
-      const userToken = getUserToken();
-      
-      if (!userToken) {
-        console.warn('⚠️ no user token found - probably running in dev mode outside whop iframe');
-        console.warn('⚠️ skipping forum post creation (this is normal for localhost testing)');
-        return; // graceful degradation instead of throwing a tantrum
-      }
-
-      console.log('📤 making authenticated server api call...');
+      // first, try without manual token - let @whop-apps/sdk handle it
+      console.log('📤 attempting request with automatic whop authentication...');
       
       const response = await fetch('/api/whop-forum', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'X-Whop-User-Token': userToken, // pass user token to server (like you should have done from the beginning)
+          // no manual token - let whop-apps-sdk validateToken handle authentication
         },
         body: JSON.stringify({
           experienceId,
@@ -95,15 +106,47 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       const result = await response.json();
       
       if (!response.ok) {
-        console.error('❌ server route failed:', result);
-        throw new Error(`server error: ${result.error} - ${result.details}`);
+        console.error('❌ automatic auth failed, trying manual token approach...');
+        
+        // fallback: try manual token extraction
+        const userToken = getUserToken();
+        
+        if (!userToken) {
+          console.warn('⚠️ no user token found - probably running in dev mode outside whop iframe');
+          console.warn('⚠️ skipping forum post creation (this is normal for localhost testing)');
+          return;
+        }
+
+        console.log('📤 retrying with manual token...');
+        
+        const retryResponse = await fetch('/api/whop-forum', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Whop-User-Token': userToken,
+          },
+          body: JSON.stringify({
+            experienceId,
+            title: 'New Listener Joined',
+            content: 'Someone just joined the radio station! 🎧 Welcome to the vibe! What music are you feeling today?'
+          }),
+        });
+        
+        const retryResult = await retryResponse.json();
+        
+        if (!retryResponse.ok) {
+          throw new Error(`manual token also failed: ${retryResult.error} - ${retryResult.details}`);
+        }
+        
+        console.log('✅ forum post created via manual token fallback:', retryResult);
+        return;
       }
       
-      console.log('✅ forum post created via authenticated server route:', result);
+      console.log('✅ forum post created via automatic whop authentication:', result);
       
     } catch (error) {
-      console.error('💥 authenticated server route forum post failed:', error);
-      console.error('💥 this is expected in development mode - forum posts only work in production whop iframe');
+      console.error('💥 forum post creation failed completely:', error);
+      console.error('💥 this might indicate authentication issues in production');
     }
   }, [experienceId, getUserToken]);
 

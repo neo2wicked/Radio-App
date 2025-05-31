@@ -21,8 +21,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // verify user authentication (finally!)
+    // debug all incoming headers
     const headersList = await headers();
+    console.log('📋 debugging incoming request headers:');
+    Array.from(headersList.entries()).forEach(([name, value]) => {
+      if (name.toLowerCase().includes('token') || name.toLowerCase().includes('auth') || name.toLowerCase().includes('whop')) {
+        console.log(`  🔍 ${name}: ${value.substring(0, 20)}...`);
+      }
+    });
+
+    // verify user authentication (finally!)
+    console.log('🔐 attempting token validation...');
     const userToken = await verifyUserToken(headersList);
     if (!userToken) {
       console.error('❌ unauthorized: no valid user token');
@@ -32,13 +41,16 @@ export async function POST(request: NextRequest) {
     console.log('✅ user authenticated:', userToken.userId);
 
     // check if user has admin access (like the working implementation)
+    console.log('🔐 checking admin access...');
     const hasAccess = await whopApi.checkIfUserHasAccessToExperience({
       userId: userToken.userId,
       experienceId,
     });
 
+    console.log('🔍 access check result:', hasAccess);
+
     if (hasAccess.hasAccessToExperience.accessLevel !== "admin") {
-      console.error('❌ unauthorized: admin access required');
+      console.error('❌ unauthorized: admin access required, got:', hasAccess.hasAccessToExperience.accessLevel);
       return NextResponse.json(
         { error: "Unauthorized, admin access required" },
         { status: 401 }
