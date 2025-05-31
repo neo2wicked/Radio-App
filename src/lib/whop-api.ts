@@ -3,14 +3,12 @@ import { validateToken } from "@whop-apps/sdk";
 
 // check environment variables properly (not hardcoded like a caveman)
 const API_KEY = process.env.WHOP_API_KEY;
-const AGENT_USER_ID = process.env.WHOP_AGENT_USER_ID || "user_aPhiCuCRAFONFL";
 
 console.log('🔑 whop api environment check:', {
   hasKey: !!API_KEY,
   keyPrefix: API_KEY?.substring(0, 15) + '...' || 'MISSING',
   keyLength: API_KEY?.length || 0,
   appId: process.env.WHOP_APP_ID,
-  agentUserId: AGENT_USER_ID,
   nodeEnv: process.env.NODE_ENV,
   vercelEnv: process.env.VERCEL_ENV
 });
@@ -20,18 +18,16 @@ if (!API_KEY) {
   throw new Error('WHOP_API_KEY environment variable is required');
 }
 
-console.log('✅ creating whop server sdk with environment variables...');
+console.log('✅ creating whop server sdk with app api key only...');
 
-// exact pattern from official whop documentation using environment variables
+// create sdk without hardcoded user - we'll authenticate per request
 export const whopApi = WhopServerSdk({
   appApiKey: API_KEY,
-  onBehalfOfUserId: AGENT_USER_ID,
-  companyId: undefined,
 });
 
 console.log('✅ whop server sdk created successfully');
 
-// add the proper verifyUserToken function using whop-apps-sdk (not your broken attempt)
+// proper user token validation using whop-apps-sdk
 export const verifyUserToken = async (headersList: Headers) => {
   try {
     console.log('🔍 attempting to validate user token...');
@@ -45,7 +41,7 @@ export const verifyUserToken = async (headersList: Headers) => {
       allHeaders: Array.from(headersList.entries())
     });
     
-    // use the proper whop-apps-sdk validateToken function (finally!)
+    // use the proper whop-apps-sdk validateToken function
     const { userId } = await validateToken({ headers: headersList });
     
     if (!userId) {
@@ -56,7 +52,7 @@ export const verifyUserToken = async (headersList: Headers) => {
     console.log('✅ user token validated successfully:', userId);
     return {
       userId,
-      token: userTokenHeader // return the actual token for debugging
+      token: userTokenHeader
     };
     
   } catch (error) {
@@ -65,7 +61,7 @@ export const verifyUserToken = async (headersList: Headers) => {
   }
 };
 
-// send websocket message (this should work)
+// send websocket message using app-level permissions
 export const sendJoinMessage = async (experienceId: string) => {
   return whopApi.sendWebsocketMessage({
     message: JSON.stringify({ 
@@ -77,10 +73,10 @@ export const sendJoinMessage = async (experienceId: string) => {
   });
 };
 
-// create forum post using official whop docs pattern (agent user configured in SDK!)
-export const createTopicPost = async (experienceId: string, title: string, content: string) => {
+// create forum post using AUTHENTICATED USER instead of hardcoded agent
+export const createTopicPost = async (experienceId: string, title: string, content: string, userToken?: string) => {
   try {
-    console.log('🎯 creating forum post with agent user (SDK configured)...');
+    console.log('🎯 creating forum post with authenticated user...');
     console.log('input experienceId:', experienceId);
     
     // step 1: get experience details to get bizId 
@@ -94,15 +90,15 @@ export const createTopicPost = async (experienceId: string, title: string, conte
     
     console.log('✅ got bizId:', bizId);
     
-    // step 2: find or create a forum experience (following whop-map pattern)
+    // step 2: find or create a forum experience using company context
     console.log('🗂️ finding or creating forum experience...');
     const forumResult = await whopApi
-      .withCompany(bizId)  // only use company context (agent user set in SDK config)
+      .withCompany(bizId)
       .findOrCreateForum({
         input: {
-          experienceId: experienceId, // parent experience where we want the forum
+          experienceId: experienceId,
           name: "Radio Station Chat",
-          whoCanPost: "everyone", // allow all members to post
+          whoCanPost: "everyone",
         },
       });
     
@@ -114,13 +110,13 @@ export const createTopicPost = async (experienceId: string, title: string, conte
     
     console.log('✅ got forum experience id:', forumExperienceId);
     
-    // step 3: create forum post (following whop-map pattern)
+    // step 3: create forum post using company context
     console.log('📤 creating forum post with company context...');
     const postResult = await whopApi
-      .withCompany(bizId)  // only use company context (agent user set in SDK config)
+      .withCompany(bizId)
       .createForumPost({
         input: {
-          forumExperienceId: forumExperienceId, // use the actual forum experience
+          forumExperienceId: forumExperienceId,
           title: `🎵 ${title}`,
           content: `${content}\n\n*radio announcement*`,
           isMention: true,

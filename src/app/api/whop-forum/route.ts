@@ -1,53 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createTopicPost, verifyUserToken } from '@/lib/whop-api';
 
 export async function POST(request: NextRequest) {
   try {
     const { experienceId, title, content } = await request.json();
     
-    console.log('🎯 whop-forum api called (agent user creates posts):', {
-      experienceId,
-      title,
-      content,
-      timestamp: new Date().toISOString()
-    });
-    
     if (!experienceId || !title || !content) {
-      console.error('❌ missing required fields:', { experienceId, title, content });
       return NextResponse.json(
         { error: 'experienceId, title, and content are required' },
         { status: 400 }
       );
     }
 
-    // no user authentication needed - agent user creates the posts
-    console.log('🤖 using agent user to create forum post (as per whop docs)');
-
-    // use the whop api function (with agent user)
-    const { createTopicPost } = await import("@/lib/whop-api");
+    console.log('🎯 forum post request:', { experienceId, title, content });
     
-    console.log('🔍 calling createTopicPost with agent user...');
-    const result = await createTopicPost(experienceId, title, content);
+    // verify user authentication (proper way for multi-tenant app)
+    const userAuth = await verifyUserToken(request.headers);
+    
+    if (!userAuth) {
+      console.error('❌ user authentication failed');
+      return NextResponse.json(
+        { error: 'user authentication required - app must be loaded within whop iframe' },
+        { status: 401 }
+      );
+    }
+    
+    console.log('✅ user authenticated:', userAuth.userId);
+    
+    // create forum post with authenticated user context
+    const result = await createTopicPost(experienceId, title, content, userAuth.token || undefined);
 
-    console.log('✅ forum post created:', result);
+    console.log('✅ forum post created successfully:', result);
     
     return NextResponse.json({ 
       success: true, 
       message: 'forum post created successfully',
-      data: result
+      data: result,
+      userId: userAuth.userId
     });
     
   } catch (error) {
-    console.error('❌ whop forum post error:');
-    console.error('❌ error type:', error instanceof Error ? error.constructor.name : typeof error);
-    console.error('❌ error message:', error instanceof Error ? error.message : String(error));
-    console.error('❌ error stack:', error instanceof Error ? error.stack : 'no stack available');
+    console.error('❌ forum post creation failed:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     
+    // return detailed error for debugging
     return NextResponse.json(
       { 
         error: 'failed to create forum post',
         details: error instanceof Error ? error.message : String(error),
-        errorType: error instanceof Error ? error.constructor.name : typeof error,
-        timestamp: new Date().toISOString()
+        suggestion: 'check that user has forum permissions in this whop company'
       },
       { status: 500 }
     );
