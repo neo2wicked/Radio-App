@@ -73,8 +73,8 @@ export const createTopicPost = async (experienceId: string, title: string, conte
       
       forumId = forumResult.createForum?.id || experienceId;
       console.log('✅ forum ready:', forumId);
-    } catch (forumError) {
-      console.log('⚠️ forum creation failed, using experienceId as fallback');
+    } catch (error) {
+      console.log('⚠️ forum creation failed, using experienceId as fallback:', error);
     }
     
     // step 3: create forum post (exact same pattern as working example)
