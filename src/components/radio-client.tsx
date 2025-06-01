@@ -15,11 +15,23 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
   const [volume, setVolume] = useState(0.7);
   const [isMuted, setIsMuted] = useState(false);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
   const [hasNotifiedJoin, setHasNotifiedJoin] = useState(false);
   const [listenerCount, setListenerCount] = useState(1);
   const audioRef = useRef<HTMLAudioElement>(null);
   
   const { isConnected, sendMessage, connectionStatus } = useWebsocket();
+
+  // detect mobile view
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobileView(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // handle websocket messages
   const handleWebsocketMessage = useCallback((message: unknown) => {
@@ -141,6 +153,18 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       setIsMuted(true);
     } else if (isMuted) {
       setIsMuted(false);
+    }
+  };
+
+  const handleVolumeTouch = () => {
+    // ensure slider stays visible during touch interaction
+    setShowVolumeSlider(true);
+    
+    // hide slider after 3 seconds of no interaction on mobile
+    if (isMobileView) {
+      setTimeout(() => {
+        setShowVolumeSlider(false);
+      }, 3000);
     }
   };
 
@@ -285,36 +309,47 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       
       {/* bottom controls */}
       <div className="absolute bottom-8 left-0 right-0 flex justify-center items-center px-8">
-        {/* volume control */}
+        {/* volume control - mobile friendly */}
         <div 
           className="relative flex items-center space-x-3"
+          onTouchStart={handleVolumeTouch}
           onMouseEnter={() => setShowVolumeSlider(true)}
           onMouseLeave={() => setShowVolumeSlider(false)}
         >
           <button
             onClick={toggleMute}
-            className="p-3 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-colors"
+            className={`
+              p-4 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation
+              ${isMobileView && !showVolumeSlider ? 'animate-pulse' : ''}
+            `}
           >
             {isMuted || volume === 0 ? (
-              <VolumeX className="w-5 h-5 text-white" />
+              <VolumeX className="w-6 h-6 text-white" />
             ) : (
-              <Volume2 className="w-5 h-5 text-white" />
+              <Volume2 className="w-6 h-6 text-white" />
             )}
           </button>
           
-          {/* volume slider */}
+          {/* volume slider - always visible on mobile, hover on desktop */}
           <div className={`
             transition-all duration-300 ease-out origin-left
-            ${showVolumeSlider ? 'opacity-100 scale-x-100 w-24' : 'opacity-0 scale-x-0 w-0'}
+            ${showVolumeSlider || isMobileView ? 'opacity-100 scale-x-100 w-32 md:w-24' : 'opacity-0 scale-x-0 w-0'}
           `}>
             <input
               type="range"
               min="0"
               max="1"
-              step="0.1"
+              step="0.05"
               value={isMuted ? 0 : volume}
               onChange={handleVolumeChange}
-              className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
+              onTouchStart={handleVolumeTouch}
+              onTouchEnd={() => {
+                // brief delay before potential hide on mobile
+                if (isMobileView) {
+                  setTimeout(() => setShowVolumeSlider(false), 2000);
+                }
+              }}
+              className="w-full h-2 md:h-1 bg-white/20 rounded-lg appearance-none cursor-pointer slider touch-manipulation"
               style={{
                 background: `linear-gradient(to right, #ff4444 0%, #ff4444 ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) 100%)`
               }}
@@ -326,22 +361,40 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       <style jsx>{`
         .slider::-webkit-slider-thumb {
           appearance: none;
-          width: 16px;
-          height: 16px;
+          width: 20px;
+          height: 20px;
           border-radius: 50%;
           background: #ff4444;
           cursor: pointer;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+          transition: transform 0.15s ease;
+        }
+        
+        .slider::-webkit-slider-thumb:active {
+          transform: scale(1.2);
         }
         
         .slider::-moz-range-thumb {
-          width: 16px;
-          height: 16px;
+          width: 20px;
+          height: 20px;
           border-radius: 50%;
           background: #ff4444;
           cursor: pointer;
           border: none;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        }
+        
+        /* mobile-specific improvements */
+        @media (max-width: 768px) {
+          .slider::-webkit-slider-thumb {
+            width: 24px;
+            height: 24px;
+          }
+          
+          .slider::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+          }
         }
       `}</style>
     </div>
