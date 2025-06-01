@@ -36,7 +36,7 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       // check for react native webview
       /ReactNative/i.test(navigator.userAgent) ||
       // check for common mobile webview indicators
-      (navigator as any).standalone === false ||
+      'standalone' in navigator && (navigator as { standalone?: boolean }).standalone === false ||
       // check if certain web APIs are restricted (common in webviews)
       !window.open ||
       // check for mobile webview specific properties
@@ -49,7 +49,7 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       document.referrer.includes('whop.com') ||
       window.location.search.includes('whop') ||
       // check for whop-specific globals that might be injected
-      typeof (window as any).whop !== 'undefined'
+      'whop' in window
     );
     
     const inEmbeddedContext = traditionalIframe || isMobileApp || isWhopContext;
@@ -63,7 +63,7 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       userAgent: navigator.userAgent,
       hostname: window.location.hostname,
       referrer: document.referrer,
-      standalone: (navigator as any).standalone
+      standalone: 'standalone' in navigator ? (navigator as { standalone?: boolean }).standalone : undefined
     });
     
     // check audio context capabilities
@@ -253,84 +253,6 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       setTimeout(() => {
         setShowVolumeSlider(false);
       }, 3000);
-    }
-  };
-
-  const adjustVolume = (direction: 'up' | 'down') => {
-    console.log('🔊 adjustVolume called:', { 
-      direction, 
-      currentVolume: volume, 
-      isInIframe, 
-      audioElement: !!audioRef.current,
-      audioCurrentVolume: audioRef.current?.volume 
-    });
-    
-    const step = 0.1;
-    let newVolume = volume;
-    
-    if (direction === 'up') {
-      newVolume = Math.min(1, volume + step);
-    } else {
-      newVolume = Math.max(0, volume - step);
-    }
-    
-    console.log('🔊 setting new volume:', { from: volume, to: newVolume });
-    
-    // always update state first
-    setVolume(newVolume);
-    
-    // try to update audio element with error handling
-    if (audioRef.current) {
-      try {
-        // in iframe context, volume changes might be restricted
-        const oldVolume = audioRef.current.volume;
-        console.log('🔊 before volume change:', { 
-          old: oldVolume, 
-          requested: newVolume,
-          audioMuted: audioRef.current.muted,
-          audioReadyState: audioRef.current.readyState,
-          audioPaused: audioRef.current.paused
-        });
-        
-        audioRef.current.volume = newVolume;
-        
-        // immediate verification
-        const immediateCheck = audioRef.current.volume;
-        
-        // delayed verification (some browsers apply changes async)
-        setTimeout(() => {
-          const delayedCheck = audioRef.current?.volume;
-          console.log('🔊 volume verification:', {
-            requested: newVolume,
-            immediate: immediateCheck,
-            delayed: delayedCheck,
-            changeApplied: delayedCheck === newVolume,
-            silentlyIgnored: delayedCheck === oldVolume
-          });
-        }, 100);
-        
-        console.log('🔊 audio volume change:', { 
-          requested: newVolume, 
-          old: oldVolume, 
-          immediate: immediateCheck,
-          blocked: immediateCheck !== newVolume
-        });
-        
-        // if volume change was blocked, show warning
-        if (immediateCheck !== newVolume) {
-          console.warn('⚠️ volume change blocked - browser restriction in mobile/iframe context');
-        }
-        
-      } catch (error) {
-        console.error('❌ volume change failed:', error);
-      }
-    }
-    
-    // update mute state based on new volume
-    if (newVolume === 0) {
-      setIsMuted(true);
-    } else if (isMuted) {
-      setIsMuted(false);
     }
   };
 
