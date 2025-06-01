@@ -18,14 +18,45 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
   const [isMobileView, setIsMobileView] = useState(false);
   const [hasNotifiedJoin, setHasNotifiedJoin] = useState(false);
   const [listenerCount, setListenerCount] = useState(1);
+  const [isInIframe, setIsInIframe] = useState(false);
+  const [audioContext, setAudioContext] = useState<string>('unknown');
   const audioRef = useRef<HTMLAudioElement>(null);
   
   const { isConnected, sendMessage, connectionStatus } = useWebsocket();
 
+  // detect iframe and audio context
+  useEffect(() => {
+    const inIframe = window.self !== window.top;
+    setIsInIframe(inIframe);
+    
+    // check audio context capabilities
+    const checkAudioContext = () => {
+      if (!audioRef.current) return 'no-audio-element';
+      
+      try {
+        // test if we can control volume
+        const testVolume = audioRef.current.volume;
+        audioRef.current.volume = testVolume;
+        return 'volume-control-ok';
+      } catch (error) {
+        return `volume-control-blocked: ${error}`;
+      }
+    };
+    
+    setAudioContext(checkAudioContext());
+    console.log('🎵 environment check:', { 
+      inIframe, 
+      audioContext: checkAudioContext(),
+      userAgent: navigator.userAgent 
+    });
+  }, []);
+
   // detect mobile view for volume slider UX
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobileView(window.innerWidth <= 768);
+      const isMobile = window.innerWidth <= 768;
+      console.log('🔍 mobile detection:', { width: window.innerWidth, isMobile });
+      setIsMobileView(isMobile);
     };
     
     checkMobile();
@@ -169,6 +200,14 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
   };
 
   const adjustVolume = (direction: 'up' | 'down') => {
+    console.log('🔊 adjustVolume called:', { 
+      direction, 
+      currentVolume: volume, 
+      isInIframe, 
+      audioElement: !!audioRef.current,
+      audioCurrentVolume: audioRef.current?.volume 
+    });
+    
     const step = 0.1;
     let newVolume = volume;
     
@@ -178,11 +217,38 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       newVolume = Math.max(0, volume - step);
     }
     
+    console.log('🔊 setting new volume:', { from: volume, to: newVolume });
+    
+    // always update state first
     setVolume(newVolume);
+    
+    // try to update audio element with error handling
     if (audioRef.current) {
-      audioRef.current.volume = newVolume;
+      try {
+        // in iframe context, volume changes might be restricted
+        const oldVolume = audioRef.current.volume;
+        audioRef.current.volume = newVolume;
+        
+        // verify the change took effect
+        const actualVolume = audioRef.current.volume;
+        console.log('🔊 audio volume change:', { 
+          requested: newVolume, 
+          old: oldVolume, 
+          actual: actualVolume,
+          restricted: actualVolume !== newVolume
+        });
+        
+        // if volume change was blocked, show warning
+        if (actualVolume !== newVolume && isInIframe) {
+          console.warn('⚠️ volume change blocked in iframe - this is expected in whop');
+        }
+        
+      } catch (error) {
+        console.error('❌ volume change failed:', error);
+      }
     }
     
+    // update mute state based on new volume
     if (newVolume === 0) {
       setIsMuted(true);
     } else if (isMuted) {
@@ -191,13 +257,36 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
   };
 
   const toggleMute = () => {
+    console.log('🔇 toggleMute called:', { 
+      currentMuted: isMuted, 
+      volume, 
+      isInIframe,
+      audioElement: !!audioRef.current 
+    });
+    
     if (audioRef.current) {
-      if (isMuted) {
-        audioRef.current.volume = volume;
-        setIsMuted(false);
-      } else {
-        audioRef.current.volume = 0;
-        setIsMuted(true);
+      try {
+        if (isMuted) {
+          audioRef.current.volume = volume;
+          setIsMuted(false);
+          console.log('🔇 unmuted, volume restored to:', volume);
+        } else {
+          audioRef.current.volume = 0;
+          setIsMuted(true);
+          console.log('🔇 muted, volume set to 0');
+        }
+        
+        // verify the change in iframe context
+        if (isInIframe) {
+          const actualVolume = audioRef.current.volume;
+          console.log('🔇 iframe mute result:', { 
+            intended: isMuted ? 0 : volume, 
+            actual: actualVolume 
+          });
+        }
+        
+      } catch (error) {
+        console.error('❌ mute toggle failed:', error);
       }
     }
   };
@@ -224,8 +313,10 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       </div>
       
       {/* websocket status indicator */}
-      <div className="absolute top-4 left-4 text-xs text-white/40">
-        ws: {connectionStatus} | listeners: {listenerCount}
+      <div className="absolute top-4 left-4 text-xs text-white/40 space-y-1">
+        <div>ws: {connectionStatus} | listeners: {listenerCount}</div>
+        <div>mobile: {isMobileView ? 'yes' : 'no'} | iframe: {isInIframe ? 'yes' : 'no'}</div>
+        <div>audio: {audioContext}</div>
       </div>
       
       {/* audio element with working stream */}
@@ -334,27 +425,35 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
         {/* volume control - different UI for mobile vs desktop */}
         {isMobileView ? (
           /* mobile volume controls - buttons instead of slider */
-          <div className="flex items-center space-x-2 bg-black/20 backdrop-blur-sm rounded-full p-2">
+          <div className="flex items-center space-x-2 bg-red-900/30 backdrop-blur-sm rounded-full p-3 border border-red-400/20">
+            <div className="text-xs text-red-400 mr-2">MOBILE</div>
+            
             {/* volume down */}
             <button
-              onClick={() => adjustVolume('down')}
+              onClick={() => {
+                console.log('📱 mobile volume down clicked');
+                adjustVolume('down');
+              }}
               disabled={volume <= 0}
               className="p-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation disabled:opacity-50"
             >
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
               </svg>
             </button>
             
             {/* mute/unmute */}
             <button
-              onClick={toggleMute}
+              onClick={() => {
+                console.log('📱 mobile mute clicked');
+                toggleMute();
+              }}
               className="p-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
             >
               {isMuted || volume === 0 ? (
-                <VolumeX className="w-6 h-6 text-white" />
+                <VolumeX className="w-7 h-7 text-white" />
               ) : (
-                <Volume2 className="w-6 h-6 text-white" />
+                <Volume2 className="w-7 h-7 text-white" />
               )}
             </button>
             
@@ -363,7 +462,7 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
               {[...Array(10)].map((_, i) => (
                 <div
                   key={i}
-                  className={`w-1 h-3 rounded-full transition-colors ${
+                  className={`w-1.5 h-4 rounded-full transition-colors ${
                     i < Math.floor(volume * 10) ? 'bg-red-400' : 'bg-white/20'
                   }`}
                 />
@@ -372,51 +471,58 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
             
             {/* volume up */}
             <button
-              onClick={() => adjustVolume('up')}
+              onClick={() => {
+                console.log('📱 mobile volume up clicked');
+                adjustVolume('up');
+              }}
               disabled={volume >= 1}
               className="p-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation disabled:opacity-50"
             >
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
               </svg>
             </button>
           </div>
         ) : (
           /* desktop volume controls - original slider */
-          <div 
-            className="relative flex items-center space-x-3"
-            onTouchStart={handleVolumeTouch}
-            onMouseEnter={() => setShowVolumeSlider(true)}
-            onMouseLeave={() => setShowVolumeSlider(false)}
-          >
-            <button
-              onClick={toggleMute}
-              className="p-4 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 active:bg-white/30 transition-colors"
-            >
-              {isMuted || volume === 0 ? (
-                <VolumeX className="w-6 h-6 text-white" />
-              ) : (
-                <Volume2 className="w-6 h-6 text-white" />
-              )}
-            </button>
+          <div className="relative flex items-center space-x-3">
+            <div className="text-xs text-blue-400 mr-2">DESKTOP</div>
             
-            {/* volume slider - desktop only */}
-            <div className={`
-              transition-all duration-300 ease-out origin-left
-              ${showVolumeSlider ? 'opacity-100 scale-x-100 w-24' : 'opacity-0 scale-x-0 w-0'}
-            `}>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={isMuted ? 0 : volume}
-                onChange={handleVolumeChange}
-                className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
-                style={{
-                  background: `linear-gradient(to right, #ff4444 0%, #ff4444 ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) 100%)`
-                }}
-              />
+            <div 
+              className="flex items-center space-x-3"
+              onTouchStart={handleVolumeTouch}
+              onMouseEnter={() => setShowVolumeSlider(true)}
+              onMouseLeave={() => setShowVolumeSlider(false)}
+            >
+              <button
+                onClick={toggleMute}
+                className="p-4 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 active:bg-white/30 transition-colors"
+              >
+                {isMuted || volume === 0 ? (
+                  <VolumeX className="w-6 h-6 text-white" />
+                ) : (
+                  <Volume2 className="w-6 h-6 text-white" />
+                )}
+              </button>
+              
+              {/* volume slider - desktop only */}
+              <div className={`
+                transition-all duration-300 ease-out origin-left
+                ${showVolumeSlider ? 'opacity-100 scale-x-100 w-24' : 'opacity-0 scale-x-0 w-0'}
+              `}>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={isMuted ? 0 : volume}
+                  onChange={handleVolumeChange}
+                  className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
+                  style={{
+                    background: `linear-gradient(to right, #ff4444 0%, #ff4444 ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) 100%)`
+                  }}
+                />
+              </div>
             </div>
           </div>
         )}
