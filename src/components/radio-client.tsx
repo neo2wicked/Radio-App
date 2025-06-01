@@ -26,8 +26,45 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
 
   // detect iframe and audio context
   useEffect(() => {
-    const inIframe = window.self !== window.top;
-    setIsInIframe(inIframe);
+    // multiple methods to detect embedded context
+    const traditionalIframe = window.self !== window.top;
+    
+    // mobile app webview detection
+    const isMobileApp = (
+      // check for mobile app user agents
+      /WhopApp|WhopMobile/i.test(navigator.userAgent) ||
+      // check for react native webview
+      /ReactNative/i.test(navigator.userAgent) ||
+      // check for common mobile webview indicators
+      (navigator as any).standalone === false ||
+      // check if certain web APIs are restricted (common in webviews)
+      !window.open ||
+      // check for mobile webview specific properties
+      'ontouchstart' in window && window.innerWidth < 1024
+    );
+    
+    // whop-specific detection
+    const isWhopContext = (
+      window.location.hostname.includes('whop.com') ||
+      document.referrer.includes('whop.com') ||
+      window.location.search.includes('whop') ||
+      // check for whop-specific globals that might be injected
+      typeof (window as any).whop !== 'undefined'
+    );
+    
+    const inEmbeddedContext = traditionalIframe || isMobileApp || isWhopContext;
+    setIsInIframe(inEmbeddedContext);
+    
+    console.log('🎵 enhanced environment check:', { 
+      traditionalIframe,
+      isMobileApp,
+      isWhopContext,
+      finalResult: inEmbeddedContext,
+      userAgent: navigator.userAgent,
+      hostname: window.location.hostname,
+      referrer: document.referrer,
+      standalone: (navigator as any).standalone
+    });
     
     // check audio context capabilities
     const checkAudioContext = () => {
@@ -37,18 +74,13 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
         // test if we can control volume
         const testVolume = audioRef.current.volume;
         audioRef.current.volume = testVolume;
-        return 'volume-control-ok';
+        return inEmbeddedContext ? 'embedded-context' : 'browser-context';
       } catch (error) {
         return `volume-control-blocked: ${error}`;
       }
     };
     
     setAudioContext(checkAudioContext());
-    console.log('🎵 environment check:', { 
-      inIframe, 
-      audioContext: checkAudioContext(),
-      userAgent: navigator.userAgent 
-    });
   }, []);
 
   // detect mobile view for volume slider UX
