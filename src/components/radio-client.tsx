@@ -424,21 +424,11 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       <div className="absolute bottom-8 left-0 right-0 flex justify-center items-center px-8">
         {/* volume control - different UI for mobile vs desktop */}
         {isMobileView ? (
-          /* mobile - no volume controls, device buttons only */
+          /* mobile - no audio controls, device only */
           <div className="flex flex-col items-center space-y-2">
             <div className="text-xs text-white/60 text-center">
-              Use device volume buttons to adjust audio
+              Use device volume and mute buttons
             </div>
-            <button
-              onClick={toggleMute}
-              className="p-4 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
-            >
-              {isMuted || volume === 0 ? (
-                <VolumeX className="w-6 h-6 text-white" />
-              ) : (
-                <Volume2 className="w-6 h-6 text-white" />
-              )}
-            </button>
           </div>
         ) : (
           /* desktop volume controls - original slider */
