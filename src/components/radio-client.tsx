@@ -168,6 +168,28 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
     }
   };
 
+  const adjustVolume = (direction: 'up' | 'down') => {
+    const step = 0.1;
+    let newVolume = volume;
+    
+    if (direction === 'up') {
+      newVolume = Math.min(1, volume + step);
+    } else {
+      newVolume = Math.max(0, volume - step);
+    }
+    
+    setVolume(newVolume);
+    if (audioRef.current) {
+      audioRef.current.volume = newVolume;
+    }
+    
+    if (newVolume === 0) {
+      setIsMuted(true);
+    } else if (isMuted) {
+      setIsMuted(false);
+    }
+  };
+
   const toggleMute = () => {
     if (audioRef.current) {
       if (isMuted) {
@@ -309,92 +331,116 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       
       {/* bottom controls */}
       <div className="absolute bottom-8 left-0 right-0 flex justify-center items-center px-8">
-        {/* volume control - mobile friendly */}
-        <div 
-          className="relative flex items-center space-x-3"
-          onTouchStart={handleVolumeTouch}
-          onMouseEnter={() => setShowVolumeSlider(true)}
-          onMouseLeave={() => setShowVolumeSlider(false)}
-        >
-          <button
-            onClick={toggleMute}
-            className={`
-              p-4 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation
-              ${isMobileView && !showVolumeSlider ? 'animate-pulse' : ''}
-            `}
-          >
-            {isMuted || volume === 0 ? (
-              <VolumeX className="w-6 h-6 text-white" />
-            ) : (
-              <Volume2 className="w-6 h-6 text-white" />
-            )}
-          </button>
-          
-          {/* volume slider - always visible on mobile, hover on desktop */}
-          <div className={`
-            transition-all duration-300 ease-out origin-left
-            ${showVolumeSlider || isMobileView ? 'opacity-100 scale-x-100 w-32 md:w-24' : 'opacity-0 scale-x-0 w-0'}
-          `}>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={isMuted ? 0 : volume}
-              onChange={handleVolumeChange}
-              onTouchStart={handleVolumeTouch}
-              onTouchEnd={() => {
-                // brief delay before potential hide on mobile
-                if (isMobileView) {
-                  setTimeout(() => setShowVolumeSlider(false), 2000);
-                }
-              }}
-              className="w-full h-2 md:h-1 bg-white/20 rounded-lg appearance-none cursor-pointer slider touch-manipulation"
-              style={{
-                background: `linear-gradient(to right, #ff4444 0%, #ff4444 ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) 100%)`
-              }}
-            />
+        {/* volume control - different UI for mobile vs desktop */}
+        {isMobileView ? (
+          /* mobile volume controls - buttons instead of slider */
+          <div className="flex items-center space-x-2 bg-black/20 backdrop-blur-sm rounded-full p-2">
+            {/* volume down */}
+            <button
+              onClick={() => adjustVolume('down')}
+              disabled={volume <= 0}
+              className="p-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation disabled:opacity-50"
+            >
+              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+              </svg>
+            </button>
+            
+            {/* mute/unmute */}
+            <button
+              onClick={toggleMute}
+              className="p-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
+            >
+              {isMuted || volume === 0 ? (
+                <VolumeX className="w-6 h-6 text-white" />
+              ) : (
+                <Volume2 className="w-6 h-6 text-white" />
+              )}
+            </button>
+            
+            {/* volume level indicator */}
+            <div className="flex items-center space-x-1 px-2">
+              {[...Array(10)].map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-1 h-3 rounded-full transition-colors ${
+                    i < Math.floor(volume * 10) ? 'bg-red-400' : 'bg-white/20'
+                  }`}
+                />
+              ))}
+            </div>
+            
+            {/* volume up */}
+            <button
+              onClick={() => adjustVolume('up')}
+              disabled={volume >= 1}
+              className="p-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation disabled:opacity-50"
+            >
+              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+              </svg>
+            </button>
           </div>
-        </div>
+        ) : (
+          /* desktop volume controls - original slider */
+          <div 
+            className="relative flex items-center space-x-3"
+            onTouchStart={handleVolumeTouch}
+            onMouseEnter={() => setShowVolumeSlider(true)}
+            onMouseLeave={() => setShowVolumeSlider(false)}
+          >
+            <button
+              onClick={toggleMute}
+              className="p-4 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 active:bg-white/30 transition-colors"
+            >
+              {isMuted || volume === 0 ? (
+                <VolumeX className="w-6 h-6 text-white" />
+              ) : (
+                <Volume2 className="w-6 h-6 text-white" />
+              )}
+            </button>
+            
+            {/* volume slider - desktop only */}
+            <div className={`
+              transition-all duration-300 ease-out origin-left
+              ${showVolumeSlider ? 'opacity-100 scale-x-100 w-24' : 'opacity-0 scale-x-0 w-0'}
+            `}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={isMuted ? 0 : volume}
+                onChange={handleVolumeChange}
+                className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
+                style={{
+                  background: `linear-gradient(to right, #ff4444 0%, #ff4444 ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) 100%)`
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
       
       <style jsx>{`
         .slider::-webkit-slider-thumb {
           appearance: none;
-          width: 20px;
-          height: 20px;
+          width: 16px;
+          height: 16px;
           border-radius: 50%;
           background: #ff4444;
           cursor: pointer;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-          transition: transform 0.15s ease;
-        }
-        
-        .slider::-webkit-slider-thumb:active {
-          transform: scale(1.2);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
         
         .slider::-moz-range-thumb {
-          width: 20px;
-          height: 20px;
+          width: 16px;
+          height: 16px;
           border-radius: 50%;
           background: #ff4444;
           cursor: pointer;
           border: none;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-        }
-        
-        /* mobile-specific improvements */
-        @media (max-width: 768px) {
-          .slider::-webkit-slider-thumb {
-            width: 24px;
-            height: 24px;
-          }
-          
-          .slider::-moz-range-thumb {
-            width: 24px;
-            height: 24px;
-          }
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
       `}</style>
     </div>
