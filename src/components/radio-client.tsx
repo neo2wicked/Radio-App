@@ -72,9 +72,34 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       
       try {
         // test if we can control volume
-        const testVolume = audioRef.current.volume;
+        const originalVolume = audioRef.current.volume;
+        const testVolume = 0.5;
+        
+        console.log('🔬 testing volume control:', { originalVolume });
+        
+        // try to change volume
         audioRef.current.volume = testVolume;
-        return inEmbeddedContext ? 'embedded-context' : 'browser-context';
+        const afterChange = audioRef.current.volume;
+        
+        // restore original volume
+        audioRef.current.volume = originalVolume;
+        const afterRestore = audioRef.current.volume;
+        
+        console.log('🔬 volume test results:', {
+          original: originalVolume,
+          testValue: testVolume,
+          afterChange: afterChange,
+          afterRestore: afterRestore,
+          changeWorked: afterChange === testVolume,
+          restoreWorked: afterRestore === originalVolume,
+          volumePropertyWritable: Object.getOwnPropertyDescriptor(audioRef.current, 'volume')?.writable !== false
+        });
+        
+        if (afterChange !== testVolume) {
+          return 'volume-readonly';
+        }
+        
+        return inEmbeddedContext ? 'embedded-context-ok' : 'browser-context-ok';
       } catch (error) {
         return `volume-control-blocked: ${error}`;
       }
@@ -259,20 +284,41 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       try {
         // in iframe context, volume changes might be restricted
         const oldVolume = audioRef.current.volume;
+        console.log('🔊 before volume change:', { 
+          old: oldVolume, 
+          requested: newVolume,
+          audioMuted: audioRef.current.muted,
+          audioReadyState: audioRef.current.readyState,
+          audioPaused: audioRef.current.paused
+        });
+        
         audioRef.current.volume = newVolume;
         
-        // verify the change took effect
-        const actualVolume = audioRef.current.volume;
+        // immediate verification
+        const immediateCheck = audioRef.current.volume;
+        
+        // delayed verification (some browsers apply changes async)
+        setTimeout(() => {
+          const delayedCheck = audioRef.current?.volume;
+          console.log('🔊 volume verification:', {
+            requested: newVolume,
+            immediate: immediateCheck,
+            delayed: delayedCheck,
+            changeApplied: delayedCheck === newVolume,
+            silentlyIgnored: delayedCheck === oldVolume
+          });
+        }, 100);
+        
         console.log('🔊 audio volume change:', { 
           requested: newVolume, 
           old: oldVolume, 
-          actual: actualVolume,
-          restricted: actualVolume !== newVolume
+          immediate: immediateCheck,
+          blocked: immediateCheck !== newVolume
         });
         
         // if volume change was blocked, show warning
-        if (actualVolume !== newVolume && isInIframe) {
-          console.warn('⚠️ volume change blocked in iframe - this is expected in whop');
+        if (immediateCheck !== newVolume) {
+          console.warn('⚠️ volume change blocked - browser restriction in mobile/iframe context');
         }
         
       } catch (error) {
@@ -456,70 +502,25 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       <div className="absolute bottom-8 left-0 right-0 flex justify-center items-center px-8">
         {/* volume control - different UI for mobile vs desktop */}
         {isMobileView ? (
-          /* mobile volume controls - buttons instead of slider */
-          <div className="flex items-center space-x-2 bg-red-900/30 backdrop-blur-sm rounded-full p-3 border border-red-400/20">
-            <div className="text-xs text-red-400 mr-2">MOBILE</div>
-            
-            {/* volume down */}
+          /* mobile - no volume controls, device buttons only */
+          <div className="flex flex-col items-center space-y-2">
+            <div className="text-xs text-white/60 text-center">
+              Use device volume buttons to adjust audio
+            </div>
             <button
-              onClick={() => {
-                console.log('📱 mobile volume down clicked');
-                adjustVolume('down');
-              }}
-              disabled={volume <= 0}
-              className="p-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation disabled:opacity-50"
-            >
-              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-              </svg>
-            </button>
-            
-            {/* mute/unmute */}
-            <button
-              onClick={() => {
-                console.log('📱 mobile mute clicked');
-                toggleMute();
-              }}
-              className="p-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
+              onClick={toggleMute}
+              className="p-4 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
             >
               {isMuted || volume === 0 ? (
-                <VolumeX className="w-7 h-7 text-white" />
+                <VolumeX className="w-6 h-6 text-white" />
               ) : (
-                <Volume2 className="w-7 h-7 text-white" />
+                <Volume2 className="w-6 h-6 text-white" />
               )}
-            </button>
-            
-            {/* volume level indicator */}
-            <div className="flex items-center space-x-1 px-2">
-              {[...Array(10)].map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-1.5 h-4 rounded-full transition-colors ${
-                    i < Math.floor(volume * 10) ? 'bg-red-400' : 'bg-white/20'
-                  }`}
-                />
-              ))}
-            </div>
-            
-            {/* volume up */}
-            <button
-              onClick={() => {
-                console.log('📱 mobile volume up clicked');
-                adjustVolume('up');
-              }}
-              disabled={volume >= 1}
-              className="p-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation disabled:opacity-50"
-            >
-              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
             </button>
           </div>
         ) : (
           /* desktop volume controls - original slider */
           <div className="relative flex items-center space-x-3">
-            <div className="text-xs text-blue-400 mr-2">DESKTOP</div>
-            
             <div 
               className="flex items-center space-x-3"
               onTouchStart={handleVolumeTouch}
