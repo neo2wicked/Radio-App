@@ -153,8 +153,7 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
         },
         body: JSON.stringify({
           experienceId,
-          title: 'New Listener Joined',
-          content: 'Someone just joined the radio station! 🎧 Welcome to the vibe! What music are you feeling today?'
+          // title and content are now handled by the server with proper radio messaging
         }),
       });
       
@@ -188,7 +187,7 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
       sendMessage({
         type: 'user_joined',
         data: { 
-          message: '🎵 someone joined the radio station',
+          message: 'someone just tuned into the radio 📻',
           timestamp: Date.now()
         }
       });

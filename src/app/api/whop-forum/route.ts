@@ -3,16 +3,16 @@ import { createTopicPost, verifyUserToken } from '@/lib/whop-api';
 
 export async function POST(request: NextRequest) {
   try {
-    const { experienceId, title, content } = await request.json();
+    const { experienceId } = await request.json();
     
-    if (!experienceId || !title || !content) {
+    if (!experienceId) {
       return NextResponse.json(
-        { error: 'experienceId, title, and content are required' },
+        { error: 'experienceId is required' },
         { status: 400 }
       );
     }
 
-    console.log('🎯 forum post request:', { experienceId, title, content });
+    console.log('🎯 forum post request:', { experienceId });
     
     // verify user authentication (proper way for multi-tenant app)
     const userAuth = await verifyUserToken(request.headers);
@@ -27,8 +27,8 @@ export async function POST(request: NextRequest) {
     
     console.log('✅ user authenticated:', userAuth.userId);
     
-    // create forum post with authenticated user context
-    const result = await createTopicPost(experienceId, title, content);
+    // create forum post with proper radio messaging (handled by server)
+    const result = await createTopicPost(experienceId, '', '');
 
     console.log('✅ forum post created successfully:', result);
     
