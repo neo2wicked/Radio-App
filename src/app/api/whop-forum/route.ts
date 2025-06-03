@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ user authenticated:', userAuth.userId);
     
     // create forum post with proper radio messaging (handled by server)
-    const result = await createTopicPost(experienceId, '', '');
+    const result = await createTopicPost(experienceId);
 
     console.log('✅ forum post created successfully:', result);
     

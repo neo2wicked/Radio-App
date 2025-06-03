@@ -121,7 +121,7 @@ export const sendJoinMessage = async (experienceId: string) => {
 };
 
 // create forum post using AGENT USER (updated for new API)
-export const createTopicPost = async (experienceId: string, title: string, content: string) => {
+export const createTopicPost = async (experienceId: string) => {
   try {
     console.log('🎯 creating forum post with agent user (new api format)...');
     console.log('input experienceId:', experienceId);
@@ -131,13 +131,12 @@ export const createTopicPost = async (experienceId: string, title: string, conte
     console.log('📡 fetching experience details for URL construction...');
     const whopExperience = await whopApi.getExperience({ experienceId });
     const companyId = whopExperience.experience?.company.id;
-    const companyTitle = whopExperience.experience?.company.title;
     
     if (!companyId) {
       throw new Error('no company id found in experience response');
     }
     
-    console.log('✅ got company info:', { companyId, companyTitle });
+    console.log('✅ got company info:', { companyId });
     
     // construct proper app URL format: whop.com/{companyIdentifier}/whop-radio-{experienceIdNoPrefix}/app/
     const experienceIdNoPrefix = experienceId.replace('exp_', '');
