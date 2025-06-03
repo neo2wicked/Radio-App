@@ -70,8 +70,8 @@ export const verifyUserToken = async (headersList: Headers) => {
           const { userId } = await validateToken({ headers: modifiedHeaders });
           console.log('✅ dev token validated successfully:', userId);
           return { userId, token: devToken };
-        } catch (devError) {
-          console.log('⚠️ dev token validation failed, trying direct extraction...');
+        } catch (error) {
+          console.log('⚠️ dev token validation failed, trying direct extraction...', error);
           
           // fallback: try to decode the JWT manually for local dev
           try {
