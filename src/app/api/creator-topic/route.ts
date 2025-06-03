@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { experienceId, title, content, creatorId } = await request.json();
+    const { experienceId, creatorId } = await request.json();
     
-    if (!experienceId || !title || !content) {
+    if (!experienceId) {
       return NextResponse.json(
-        { error: 'experienceId, title, and content are required' },
+        { error: 'experienceId is required' },
         { status: 400 }
       );
     }
@@ -16,12 +16,11 @@ export async function POST(request: NextRequest) {
     
     console.log('creating forum post:', {
       experienceId,
-      title,
       creatorId
     });
     
-    // create forum post  
-    const forumResult = await createTopicPost(experienceId, title, content);
+    // create forum post (title and content are now hardcoded in the function)
+    const forumResult = await createTopicPost(experienceId);
 
     console.log('forum post created:', forumResult);
     
