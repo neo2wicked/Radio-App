@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     });
     
     // create forum post (title and content are now hardcoded in the function)
-    const forumResult = await createTopicPost(experienceId);
+    const forumResult = await createTopicPost(experienceId, creatorId);
 
     console.log('forum post created:', forumResult);
     

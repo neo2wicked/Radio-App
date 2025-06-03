@@ -113,10 +113,11 @@ export const sendJoinMessage = async (experienceId: string) => {
 };
 
 // create forum post using APP-LEVEL permissions (works in any whop where app is installed)
-export const createTopicPost = async (experienceId: string) => {
+export const createTopicPost = async (experienceId: string, userId?: string) => {
   try {
     console.log('🎯 creating forum post with app-level permissions...');
     console.log('input experienceId:', experienceId);
+    console.log('authenticated userId:', userId);
     
     // step 1: get experience details to construct proper app URL
     console.log('📡 fetching experience details for URL construction...');
@@ -136,9 +137,13 @@ export const createTopicPost = async (experienceId: string) => {
     
     console.log('🔗 constructed app url:', appUrl);
     
-    // step 2: find or create a forum experience using app permissions (NEW API FORMAT)
+    // step 2: find or create a forum experience using app permissions
     console.log('🗂️ finding or creating forum experience with app permissions...');
-    const forumResult = await whopApi.findOrCreateForum({
+    
+    // use authenticated user context if available for forum operations
+    const apiClient = userId ? whopApi.withUser(userId) : whopApi;
+    
+    const forumResult = await apiClient.findOrCreateForum({
       input: {
         experienceId: experienceId,
         name: "Radio Station Chat",
@@ -157,9 +162,9 @@ export const createTopicPost = async (experienceId: string) => {
     
     console.log('✅ got forum experience id:', forumExperienceId);
     
-    // step 3: create forum post using app permissions (NEW API FORMAT)
+    // step 3: create forum post using app permissions with user context
     console.log('📤 creating forum post with app permissions...');
-    const postResult = await whopApi.createForumPost({
+    const postResult = await apiClient.createForumPost({
       input: {
         forumExperienceId: forumExperienceId,
         title: `New listener joined the radio! 📻`,
