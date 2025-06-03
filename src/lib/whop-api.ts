@@ -3,14 +3,11 @@ import { validateToken } from "@whop-apps/sdk";
 
 // check environment variables properly (not hardcoded like a caveman)
 const API_KEY = process.env.WHOP_API_KEY;
-const AGENT_USER_ID = process.env.WHOP_AGENT_USER_ID;
 
 console.log('🔑 whop api environment check:', {
   hasKey: !!API_KEY,
   keyPrefix: API_KEY?.substring(0, 15) + '...' || 'MISSING',
   keyLength: API_KEY?.length || 0,
-  hasAgentUserId: !!AGENT_USER_ID,
-  agentUserIdPrefix: AGENT_USER_ID?.substring(0, 15) + '...' || 'MISSING',
   appId: process.env.WHOP_APP_ID,
   nodeEnv: process.env.NODE_ENV,
   vercelEnv: process.env.VERCEL_ENV
@@ -21,12 +18,7 @@ if (!API_KEY) {
   throw new Error('WHOP_API_KEY environment variable is required');
 }
 
-if (!AGENT_USER_ID) {
-  console.error('❌ WHOP_AGENT_USER_ID environment variable is missing!');
-  throw new Error('WHOP_AGENT_USER_ID environment variable is required for forum operations');
-}
-
-console.log('✅ creating whop server sdk with app api key and agent user...');
+console.log('✅ creating whop server sdk with app api key...');
 
 // create sdk with proper configuration
 export const whopApi = WhopServerSdk({
@@ -120,12 +112,11 @@ export const sendJoinMessage = async (experienceId: string) => {
   });
 };
 
-// create forum post using AGENT USER (updated for new API)
+// create forum post using APP-LEVEL permissions (works in any whop where app is installed)
 export const createTopicPost = async (experienceId: string) => {
   try {
-    console.log('🎯 creating forum post with agent user (new api format)...');
+    console.log('🎯 creating forum post with app-level permissions...');
     console.log('input experienceId:', experienceId);
-    console.log('using agent user id:', AGENT_USER_ID);
     
     // step 1: get experience details to construct proper app URL
     console.log('📡 fetching experience details for URL construction...');
@@ -145,20 +136,18 @@ export const createTopicPost = async (experienceId: string) => {
     
     console.log('🔗 constructed app url:', appUrl);
     
-    // step 2: find or create a forum experience using agent user context (NEW API FORMAT)
-    console.log('🗂️ finding or creating forum experience with agent user...');
-    const forumResult = await whopApi
-      .withUser(AGENT_USER_ID)
-      .findOrCreateForum({
-        input: {
-          experienceId: experienceId,
-          name: "Radio Station Chat",
-          whoCanPost: "everyone",
-          // optional: you can add expiration or price here if needed
-          // expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
-          // price: { baseCurrency: "usd", initialPrice: 100 }
-        },
-      });
+    // step 2: find or create a forum experience using app permissions (NEW API FORMAT)
+    console.log('🗂️ finding or creating forum experience with app permissions...');
+    const forumResult = await whopApi.findOrCreateForum({
+      input: {
+        experienceId: experienceId,
+        name: "Radio Station Chat",
+        whoCanPost: "everyone",
+        // optional: you can add expiration or price here if needed
+        // expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+        // price: { baseCurrency: "usd", initialPrice: 100 }
+      },
+    });
     
     const forumExperienceId = forumResult.createForum?.id;
     
@@ -168,29 +157,27 @@ export const createTopicPost = async (experienceId: string) => {
     
     console.log('✅ got forum experience id:', forumExperienceId);
     
-    // step 3: create forum post using agent user context (NEW API FORMAT)
-    console.log('📤 creating forum post with agent user...');
-    const postResult = await whopApi
-      .withUser(AGENT_USER_ID)
-      .createForumPost({
-        input: {
-          forumExperienceId: forumExperienceId,
-          title: `New listener joined the radio! 📻`,
-          content: `someone just tuned into the station. 🎧\n\nJoin the vibe here:\n${appUrl}`,
-          isMention: true,
-          // optional: add attachments, polls, paywalls, etc.
-          // attachments: [{ directUploadId: "upload_id" }],
-          // poll: { options: [{ id: "1", text: "Option 1" }] },
-          // paywallAmount: 9.99,
-          // paywallCurrency: "usd"
-        },
-      });
+    // step 3: create forum post using app permissions (NEW API FORMAT)
+    console.log('📤 creating forum post with app permissions...');
+    const postResult = await whopApi.createForumPost({
+      input: {
+        forumExperienceId: forumExperienceId,
+        title: `New listener joined the radio! 📻`,
+        content: `someone just tuned into the station. 🎧\n\nJoin the vibe here:\n${appUrl}`,
+        isMention: true,
+        // optional: add attachments, polls, paywalls, etc.
+        // attachments: [{ directUploadId: "upload_id" }],
+        // poll: { options: [{ id: "1", text: "Option 1" }] },
+        // paywallAmount: 9.99,
+        // paywallCurrency: "usd"
+      },
+    });
     
     console.log('✅ forum post created successfully:', postResult);
     return postResult;
     
   } catch (error) {
-    console.error('❌ forum post creation failed with new api format:', error);
+    console.error('❌ forum post creation failed with app permissions:', error);
     throw error;
   }
 };
