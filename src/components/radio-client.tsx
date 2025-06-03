@@ -140,11 +140,11 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
 
   // create automatic forum post when someone joins (agent user handles everything)
   const createJoinPost = useCallback(async () => {
-    console.log('🎯 creating join forum post via agent user!');
+    console.log('🎯 attempting to create join forum post...');
     console.log('📍 experienceId:', experienceId);
     
     try {
-      console.log('📤 making api call (agent user creates post)...');
+      console.log('📤 making api call for forum post...');
       
       const response = await fetch('/api/whop-forum', {
         method: 'POST',
@@ -163,18 +163,22 @@ function RadioAppContent({ experienceId }: RadioClientProps) {
         statusText: response.statusText
       });
       
-      const result = await response.json();
-      
       if (!response.ok) {
-        console.error('❌ forum post creation failed:', result);
-        console.error('❌ server error details:', result.details);
-        return;
+        const result = await response.json();
+        console.warn('⚠️ forum post creation failed (radio still works):', result);
+        console.warn('⚠️ error details:', result.details);
+        // don't throw error - just log it and continue
+        return { error: true, reason: result.details || 'forum post failed' };
       }
       
+      const result = await response.json();
       console.log('✅ forum post created successfully:', result);
+      return result;
       
     } catch (error) {
-      console.error('💥 forum post request failed:', error);
+      console.warn('⚠️ forum post request failed (radio still works):', error);
+      // don't throw error - just log it and continue
+      return { error: true, reason: 'network error' };
     }
   }, [experienceId]);
 
