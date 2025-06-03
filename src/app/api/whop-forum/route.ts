@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createTopicPost, verifyUserToken } from '@/lib/whop-api';
 
+//comment
 export async function POST(request: NextRequest) {
   try {
     const { experienceId, title, content } = await request.json();
